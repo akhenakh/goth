@@ -31,6 +31,10 @@ type OAuth1 struct {
 	// DeniedHandler is called if the request is unauthorized. If it is nil,
 	// the DefaultDeniedHandler variable is used.
 	DeniedHandler http.Handler
+
+	// WithBodyHash will check for the optionnal oauth_body_hash, default to no
+	// see http://oauth.googlecode.com/svn'/spec/ext/body_hash/1.0/drafts/4/spec.html
+	WithBodyHash bool
 }
 
 type OAuthCheckerFunc func(consumerKey string) (userId string, consumerSecret string)
@@ -96,18 +100,17 @@ func signatureBase(r *http.Request, oAuthHeaders map[string]string) string {
 	}
 
 	normalizedParams := strings.Join(stringParams, "&")
-
-	//TODO: find the base url
 	sign := fmt.Sprintf("%s&%s&%s",
 		r.Method,
-		url.QueryEscape("http://127.0.0.1:3000"+r.URL.String()),
+		// TODO: find real scheme
+		url.QueryEscape("http://"+r.Host+r.URL.String()),
 		url.QueryEscape(normalizedParams))
 	return sign
 }
 
 // checkRequest is checking the request is OAuth 1.0a valid and check the body_hash
 // return the oauth_consumer_key
-func checkRequest(r *http.Request) (consumerKey string, body string, oAuthHeaders map[string]string) {
+func checkRequest(r *http.Request, checkBodyHash bool) (consumerKey string, body string, oAuthHeaders map[string]string) {
 	// test we have a header Authorization
 	if _, ok := r.Header["Authorization"]; !ok {
 		return
@@ -143,7 +146,7 @@ func checkRequest(r *http.Request) (consumerKey string, body string, oAuthHeader
 
 	// if the method is not GET and the content type is not url encoded
 	// we have to check for oauth_body_hash
-	if r.Method != "GET" && r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+	if checkBodyHash && r.Method != "GET" && r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
 		if _, ok := oAuthHeaders["oauth_body_hash"]; !ok {
 			return
 		}
@@ -151,7 +154,6 @@ func checkRequest(r *http.Request) (consumerKey string, body string, oAuthHeader
 
 		// we need to read the body for oauth_body_hash to be calculated
 		// but then restore it later for the others middleware to read it
-
 		bodydata, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return
@@ -166,14 +168,13 @@ func checkRequest(r *http.Request) (consumerKey string, body string, oAuthHeader
 		// escape body hash for later signature regeneration
 		oAuthHeaders["oauth_body_hash"] = url.QueryEscape(oAuthHeaders["oauth_body_hash"])
 	}
-
 	consumerKey = oAuthHeaders["oauth_consumer_key"]
 	return
 }
 
 func (o *OAuth1) AuthProtect(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if consumerKey, body, oAuthHeaders := checkRequest(r); consumerKey != "" {
+		if consumerKey, body, oAuthHeaders := checkRequest(r, o.WithBodyHash); consumerKey != "" {
 			// generate base signature string
 			sign := signatureBase(r, oAuthHeaders)
 			user, consumerSecret := o.CheckerFunc(consumerKey)
@@ -185,7 +186,6 @@ func (o *OAuth1) AuthProtect(h http.Handler) http.Handler {
 				rawsignature := hashfun.Sum(nil)
 				base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(rawsignature)))
 				base64.StdEncoding.Encode(base64signature, rawsignature)
-
 				sign = string(base64signature)
 
 				if sign == oAuthHeaders["oauth_signature"] {
