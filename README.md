@@ -5,6 +5,8 @@ Go OAuth 1.0a 2 legs provider with oauth_body_hash support.
 
 Just provide a function conforms to `OAuthCheckerFunc` Goth will authenticate your requests.  
 
+You can get the userId return by your auth function inside the handler at `r.URL.User.Username()`.
+
 To enable oauth_body_hash check set `WithBodyHash` to true.
 
 ```go
