@@ -32,4 +32,5 @@ func main() {
 	o := goth.OAuth1{CheckerFunc: myAuthFunc}
 	myHandler := http.HandlerFunc(helloFunc)
 	http.ListenAndServe(":3000", o.AuthProtect(myHandler))
-}```
+}
+```
