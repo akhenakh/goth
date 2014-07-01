@@ -1,9 +1,9 @@
 goth
 ====
 
-Go OAuth 1.0a provider with oauth_body_hash support.  
+Go OAuth 1.0a 2 legs provider with oauth_body_hash support.  
 
-Just provide a function conform to `OAuthCheckerFunc` Goth will authenticate your requests.  
+Just provide a function conforms to `OAuthCheckerFunc` Goth will authenticate your requests.  
 
 To enable oauth_body_hash check set `WithBodyHash` to true.
 
