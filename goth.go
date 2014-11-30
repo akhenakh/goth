@@ -61,7 +61,7 @@ func splitAuthHeader(oAuthHeader string) map[string]string {
 			continue
 		}
 
-		splittedField := strings.Split(oauthField, "=")
+		splittedField := strings.SplitN(oauthField, "=", 2)
 		if len(splittedField) < 2 {
 			continue
 		}
@@ -160,7 +160,6 @@ func checkRequest(r *http.Request, checkBodyHash bool) (consumerKey string, body
 		}
 		hasher.Write(bodydata)
 		bodySign := base64.StdEncoding.EncodeToString(hasher.Sum(nil))
-
 		body = string(bodydata[:])
 		if bodySign != oAuthHeaders["oauth_body_hash"] {
 			return
